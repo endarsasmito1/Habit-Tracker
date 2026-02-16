@@ -25,8 +25,8 @@ router.get('/dashboard', async (req, res) => {
         const currentStreak = 5;
 
         res.json({
-            total_completed: totalCompleted[0].count,
-            active_habits: activeHabits[0].count,
+            total_completed: Number(totalCompleted[0].count),
+            active_habits: Number(activeHabits[0].count),
             current_streak: currentStreak,
             today_progress: 66 // Mock
         });

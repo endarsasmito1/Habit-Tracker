@@ -1,36 +1,51 @@
-import { authClient } from "./auth-client";
-
 const API_URL = "http://localhost:3000/api";
 
 export const api = {
     get: async (endpoint) => {
-        const { data, error } = await authClient.fetch(`${API_URL}${endpoint}`);
-        if (error) throw error;
-        return data;
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            credentials: "include",
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(err.error || "Request failed");
+        }
+        return response.json();
     },
     post: async (endpoint, body) => {
-        const { data, error } = await authClient.fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(`${API_URL}${endpoint}`, {
             method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
-            headers: { "Content-Type": "application/json" }
         });
-        if (error) throw error;
-        return data;
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(err.error || "Request failed");
+        }
+        return response.json();
     },
     patch: async (endpoint, body) => {
-        const { data, error } = await authClient.fetch(`${API_URL}${endpoint}`, {
+        const response = await fetch(`${API_URL}${endpoint}`, {
             method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
-            headers: { "Content-Type": "application/json" }
         });
-        if (error) throw error;
-        return data;
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(err.error || "Request failed");
+        }
+        return response.json();
     },
     delete: async (endpoint) => {
-        const { data, error } = await authClient.fetch(`${API_URL}${endpoint}`, {
-            method: "DELETE"
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            method: "DELETE",
+            credentials: "include",
         });
-        if (error) throw error;
-        return data;
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: response.statusText }));
+            throw new Error(err.error || "Request failed");
+        }
+        return response.json();
     }
 };

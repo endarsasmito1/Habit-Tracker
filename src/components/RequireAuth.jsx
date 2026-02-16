@@ -2,7 +2,7 @@ import { useSession } from "../lib/auth-client";
 import { Navigate, Outlet } from "react-router-dom";
 
 export default function RequireAuth() {
-    const { data: session, isPending, error } = useSession();
+    const { data: session, isPending } = useSession();
 
     if (isPending) {
         return (

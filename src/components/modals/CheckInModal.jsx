@@ -1,93 +1,136 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { api } from '../../lib/api';
 
-export default function CheckInModal({ isOpen, onClose }) {
-    if (!isOpen) return null;
+export default function CheckInModal({ isOpen, onClose, habit, initialTimeSpent = 0, onSuccess }) {
+    const [notes, setNotes] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState(null); // 'completed' | 'skipped'
+
+    // Reset state when opening
+    useEffect(() => {
+        if (isOpen) {
+            setNotes('');
+            setStatus(null);
+            setLoading(false);
+        }
+    }, [isOpen]);
+
+    if (!isOpen || !habit) return null;
+
+    const handleSubmit = async (actionStatus) => {
+        setLoading(true);
+        setStatus(actionStatus);
+
+        try {
+            await api.post('/checkins', {
+                habitId: habit.id,
+                date: new Date().toISOString().split('T')[0],
+                status: actionStatus, // 'completed' or 'skipped'
+                notes: notes,
+                timeSpent: initialTimeSpent, // in minutes? The schema calls for 'integer'. Let's assume minutes or handle in backend. 
+                // schema says 'time_spent' integer. Let's send minutes.
+                moodRating: null // Optional
+            });
+
+            if (onSuccess) onSuccess();
+            // Close after brief delay or immediately?
+            // UX: Maybe show success state? The design shows "Done" button. 
+            // I'll close immediately for now.
+            onClose();
+        } catch (error) {
+            console.error('Check-in failed:', error);
+            // Handle error (maybe show alert)
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="bg-white dark:bg-[#1a2e23] w-full max-w-lg rounded-3xl shadow-2xl relative overflow-hidden animate-zoom-in">
-                <div className="relative bg-gradient-to-br from-pastel-mint to-white dark:from-[#204a2e] dark:to-[#1a2e23] p-8 pb-12 text-center overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                        <div className="absolute top-[-20%] left-[-10%] w-48 h-48 bg-primary/20 rounded-full blur-3xl"></div>
-                        <div className="absolute bottom-[-10%] right-[-10%] w-40 h-40 bg-purple-400/20 rounded-full blur-3xl"></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#112116]/40 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-[520px] bg-white dark:bg-[#1a2e23] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden border border-slate-200 dark:border-slate-800">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between px-8 pt-8 pb-4">
+                    <div>
+                        <h2 className="text-2xl font-extrabold tracking-tight text-[#111813] dark:text-white">{habit.name}</h2>
+                        <div className="flex items-center gap-3 mt-2">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+                                <span className="material-icons-round text-[14px]">local_fire_department</span>
+                                Streak: {habit.streak || 0} Days
+                            </span>
+                            <span className="text-xs font-medium text-neutral-gray/70 dark:text-slate-400 flex items-center gap-1">
+                                <span className="material-icons-round text-[14px]">schedule</span>
+                                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                        </div>
                     </div>
-                    <div className="relative z-10 flex flex-col items-center">
-                        <div className="w-20 h-20 bg-white dark:bg-[#1a2e23] rounded-full flex items-center justify-center shadow-lg mb-6 ring-4 ring-white/50 dark:ring-white/5">
-                            <span className="material-icons-round text-5xl text-primary animate-bounce">check_circle</span>
+                    <button
+                        onClick={onClose}
+                        className="text-neutral-gray dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
+                    >
+                        <span className="material-icons-round">close</span>
+                    </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="px-8 py-4 space-y-6">
+                    {/* Action Buttons */}
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => handleSubmit('completed')}
+                            disabled={loading}
+                            className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3.5 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {loading && status === 'completed' ? (
+                                <span className="material-icons-round animate-spin">refresh</span>
+                            ) : (
+                                <span className="material-icons-round">done_all</span>
+                            )}
+                            Done
+                        </button>
+                        <button
+                            onClick={() => handleSubmit('skipped')}
+                            disabled={loading}
+                            className="flex-1 flex items-center justify-center gap-2 bg-[#FF8B8B] hover:bg-[#FF8B8B]/90 text-white font-bold py-3.5 rounded-lg shadow-lg shadow-[#FF8B8B]/20 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {loading && status === 'skipped' ? (
+                                <span className="material-icons-round animate-spin">refresh</span>
+                            ) : (
+                                <span className="material-icons-round">fast_forward</span>
+                            )}
+                            Skip
+                        </button>
+                    </div>
+
+                    {/* Notes & Reflections */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <label className="text-sm font-bold text-neutral-gray dark:text-slate-300">Notes & Reflections</label>
+                            <span className="text-[10px] text-neutral-gray/50 dark:text-slate-500 font-medium italic">Optional</span>
                         </div>
-                        <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2">Morning Jog Completed!</h2>
-                        <div className="inline-flex items-center gap-2 bg-white/60 dark:bg-black/20 px-4 py-1.5 rounded-full border border-white/50 dark:border-white/10 shadow-sm backdrop-blur-sm">
-                            <span className="material-icons-round text-slate-500 text-sm">schedule</span>
-                            <span className="text-lg font-mono font-bold text-slate-700 dark:text-slate-200 tracking-wider">07:15:20</span>
-                        </div>
+                        <textarea
+                            className="w-full min-h-[160px] p-4 rounded-lg border border-neutral-border dark:border-slate-700 bg-[#f6f8f6]/30 dark:bg-slate-800/30 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none text-base text-slate-800 dark:text-slate-200 placeholder:text-neutral-gray/40 dark:placeholder:text-slate-600 transition-colors resize-none"
+                            placeholder="How did you feel today? Any breakthroughs or distractions during your practice?"
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                        />
                     </div>
                 </div>
 
-                <div className="p-8 -mt-6 bg-white dark:bg-[#1a2e23] rounded-t-3xl relative z-20">
-                    <div className="mb-8">
-                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">How did it feel?</label>
-                        <div className="flex justify-center gap-4">
-                            <button className="group flex flex-col items-center gap-2 transition-transform hover:scale-110 focus:outline-none">
-                                <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-2xl shadow-sm border border-slate-100 dark:border-slate-700 group-hover:bg-red-50 group-hover:border-red-100 dark:group-hover:border-red-900/30 transition-colors">
-                                    😫
-                                </div>
-                            </button>
-                            <button className="group flex flex-col items-center gap-2 transition-transform hover:scale-110 focus:outline-none">
-                                <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-2xl shadow-sm border border-slate-100 dark:border-slate-700 group-hover:bg-orange-50 group-hover:border-orange-100 dark:group-hover:border-orange-900/30 transition-colors">
-                                    😐
-                                </div>
-                            </button>
-                            <button className="group flex flex-col items-center gap-2 transition-transform hover:scale-110 focus:outline-none">
-                                <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-2xl shadow-sm border border-slate-100 dark:border-slate-700 group-hover:bg-blue-50 group-hover:border-blue-100 dark:group-hover:border-blue-900/30 transition-colors">
-                                    🙂
-                                </div>
-                            </button>
-                            <button className="group flex flex-col items-center gap-2 transition-transform hover:scale-110 focus:outline-none">
-                                <div className="w-12 h-12 rounded-2xl bg-pastel-mint dark:bg-primary/20 flex items-center justify-center text-2xl shadow-md border-2 border-primary ring-2 ring-primary/20 transition-colors">
-                                    😁
-                                </div>
-                            </button>
-                            <button className="group flex flex-col items-center gap-2 transition-transform hover:scale-110 focus:outline-none">
-                                <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-2xl shadow-sm border border-slate-100 dark:border-slate-700 group-hover:bg-purple-50 group-hover:border-purple-100 dark:group-hover:border-purple-900/30 transition-colors">
-                                    🤩
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="mb-8">
-                        <label htmlFor="reflection" className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Notes & Reflection</label>
-                        <div className="relative">
-                            <textarea
-                                id="reflection"
-                                className="w-full bg-slate-50 dark:bg-[#15281b] border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none text-sm leading-relaxed"
-                                placeholder="What went well? Any obstacles overcome?"
-                                rows="4"
-                                defaultValue="Felt great today! Beat my personal best time by 2 minutes. The weather was perfect for a run."
-                            ></textarea>
-                            <div className="absolute bottom-3 right-3 flex gap-1">
-                                <button className="p-1.5 text-slate-400 hover:text-primary transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                                    <span className="material-icons-round text-lg">mic</span>
-                                </button>
-                                <button className="p-1.5 text-slate-400 hover:text-primary transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                                    <span className="material-icons-round text-lg">image</span>
-                                </button>
+                {/* Modal Footer */}
+                <div className="px-8 pb-8 pt-2">
+                    <div className="flex items-center justify-between p-4 bg-[#f6f8f6] dark:bg-slate-800/50 rounded-lg border border-neutral-border dark:border-slate-700">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white dark:bg-slate-700 rounded-full shadow-sm">
+                                <span className="material-icons-round text-primary">award_star</span>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-[#111813] dark:text-white">Next Milestone</p>
+                                <p className="text-[10px] text-neutral-gray dark:text-slate-400">3 days until 15-day badge</p>
                             </div>
                         </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                        <button className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-glow transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-lg">
-                            <span className="material-icons-round">check</span>
-                            Finish
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="w-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium py-2 text-sm transition-colors"
-                        >
-                            Edit details
-                        </button>
+                        <div className="w-24 bg-white dark:bg-slate-700 h-2 rounded-full overflow-hidden border border-neutral-border dark:border-slate-600">
+                            <div className="bg-primary h-full w-[80%] rounded-full"></div>
+                        </div>
                     </div>
                 </div>
             </div>
